@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vyksys LLC | Server Telemetry Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Real-Time Predictive Maintenance for Data Center Infrastructure: a distributed edge-to-server architecture using a hybrid MicroPython–Python pipeline.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{
+  --navy:#2c3e50; --navy2:#34495e; --ink:#1f2937; --muted:#5b6675; --line:#e3e8ee;
+  --bg:#f4f6f9; --card:#fff; --accent:#10b981; --accent-d:#0b8f66; --accent-soft:#e7f8f1;
+  --code-bg:#0f1b2a; --code-fg:#d6e2f0; --radius:14px;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 6px 20px rgba(16,24,40,.06);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:90px}
+body{margin:0;font-family:'Inter',Arial,sans-serif;background:var(--bg);color:var(--ink);text-align:center}
+h1,h2,h3{color:var(--ink)}
+
+/* ---------- Header ---------- */
+header{position:sticky;top:0;z-index:50;background:var(--navy);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:14px 30px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.logo{font-size:1.4em;font-weight:700;letter-spacing:1px}
+.tabs button{background:var(--navy2);color:#fff;border:none;padding:10px 20px;margin-left:10px;cursor:pointer;border-radius:8px;font:500 .95em 'Inter',sans-serif;transition:.25s}
+.tabs button:hover{background:#4b6584}
+.tabs button.active{background:var(--accent);font-weight:700}
+#progress{position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--accent);transition:width .1s}
+
+.page-view{display:none;padding:20px}
+.page-view.active{display:block}
+
+/* ---------- Dashboard (original) ---------- */
+.card{background:#fff;padding:20px;margin:15px auto;max-width:600px;border-radius:10px;box-shadow:0 4px 8px rgba(0,0,0,.1);text-align:left}
+.card h2{text-align:center;color:#333}
+.card p{text-align:center}
+.status-box{padding:15px;border-radius:8px;font-size:1.3em;font-weight:bold;margin:15px auto;max-width:600px;border:2px solid}
+.green{color:#155724;background:#d4edda;border-color:#c3e6cb}
+.orange{color:#856404;background:#fff3cd;border-color:#ffeeba}
+.red{color:#721c24;background:#f8d7da;border-color:#f5c6cb}
+canvas{max-width:100%}
+
+/* ---------- Paper / About ---------- */
+#about{padding:0}
+.hero{background:linear-gradient(135deg,#1d2b3a 0%,#2c3e50 55%,#0f7a5a 130%);color:#fff;padding:70px 24px 60px}
+.hero .wrap{max-width:900px;margin:0 auto}
+.eyebrow{display:inline-block;font-size:.72em;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7ee8c3;background:rgba(16,185,129,.15);border:1px solid rgba(126,232,195,.35);padding:6px 14px;border-radius:99px}
+.hero h1{color:#fff;font-size:clamp(1.9em,4.4vw,3em);line-height:1.15;margin:20px 0 14px;font-weight:800;letter-spacing:-.02em}
+.hero .sub{font-size:1.1em;color:#cfdbe6;max-width:720px;margin:0 auto 28px;line-height:1.55}
+.meta{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:8px}
+.meta div{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:10px 16px;text-align:left;font-size:.85em}
+.meta b{display:block;font-size:.72em;letter-spacing:.1em;text-transform:uppercase;color:#9fb3c6;font-weight:600;margin-bottom:2px}
+.author{margin-top:26px;color:#e9f1f7;font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:900px;margin:-34px auto 0;padding:0 20px;position:relative}
+.stat{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 10px}
+.stat strong{display:block;font-size:1.6em;color:var(--accent-d);font-weight:800}
+.stat span{font-size:.78em;color:var(--muted)}
+
+.layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:40px;max-width:1120px;margin:40px auto;padding:0 24px;text-align:left}
+nav.toc{position:sticky;top:96px;align-self:start;max-height:calc(100vh - 120px);overflow:auto}
+nav.toc h4{margin:0 0 10px;font-size:.72em;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+nav.toc a{display:block;padding:7px 12px;margin-bottom:2px;border-left:3px solid var(--line);color:var(--muted);text-decoration:none;font-size:.88em;transition:.15s}
+nav.toc a:hover{color:var(--ink);background:#eaeef3}
+nav.toc a.on{border-left-color:var(--accent);color:var(--accent-d);font-weight:600;background:var(--accent-soft)}
+
+article section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:34px 38px;margin-bottom:24px}
+article h2{margin:0 0 6px;font-size:1.55em;letter-spacing:-.01em}
+article h2 .n{display:inline-block;background:var(--accent-soft);color:var(--accent-d);font-size:.62em;font-weight:700;padding:3px 10px;border-radius:8px;margin-right:10px;vertical-align:middle}
+article h3{margin:26px 0 8px;font-size:1.08em;color:var(--navy)}
+article p,article li{line-height:1.7;color:#3b4654;font-size:1em}
+article ul{padding-left:20px}
+article li{margin-bottom:8px}
+article li b{color:var(--ink)}
+.lead{font-size:1.08em;border-left:4px solid var(--accent);padding-left:16px;color:#2b3542}
+
+.table-wrap{overflow-x:auto;margin:16px 0;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:.9em}
+th{background:var(--navy);color:#fff;text-align:left;padding:11px 14px;font-weight:600;white-space:nowrap}
+td{padding:11px 14px;border-top:1px solid var(--line);vertical-align:top;color:#3b4654}
+tbody tr:nth-child(even){background:#f8fafc}
+td:first-child{font-weight:600;color:var(--ink)}
+
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;justify-content:center;gap:8px;margin:22px 0}
+.node{flex:1 1 120px;min-width:120px;max-width:150px;background:#f1f5f9;border:1px solid var(--line);border-radius:12px;padding:14px 8px;text-align:center;font-size:.8em;color:var(--muted)}
+.node b{display:block;color:var(--ink);font-size:1.05em;margin-bottom:3px}
+.node.edge{background:#e7f8f1;border-color:#a7e6cd}
+.node.srv{background:#e8f0fb;border-color:#b6cdee}
+.arrow{align-self:center;color:#9aa6b5;font-weight:700}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pane{border:1px solid var(--line);border-radius:12px;padding:6px 20px 12px}
+.pane h3{margin-top:14px}
+.callout{background:var(--accent-soft);border:1px solid #bfeedd;border-radius:12px;padding:14px 18px;margin:16px 0;color:#14513d;font-size:.95em;line-height:1.6}
+.pill{display:inline-block;background:#eef2f6;color:var(--navy);font:500 .78em 'JetBrains Mono',monospace;padding:3px 9px;border-radius:6px;margin:2px 4px 2px 0}
+
+.code{position:relative;margin:12px 0 22px}
+.code pre{margin:0;background:var(--code-bg);color:var(--code-fg);border-radius:12px;padding:20px;overflow-x:auto;font:400 .82em/1.6 'JetBrains Mono',monospace;tab-size:4}
+.code button{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#cfe0f0;border-radius:6px;padding:4px 10px;font:500 .72em 'Inter',sans-serif;cursor:pointer}
+.code button:hover{background:rgba(255,255,255,.2)}
+.code .lang{position:absolute;top:12px;left:20px;font:600 .66em 'Inter',sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#7ea0bf}
+.code pre{padding-top:38px}
+
+footer{padding:34px 20px 50px;color:var(--muted);font-size:.85em}
+
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
+  nav.toc{display:none}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .two{grid-template-columns:1fr}
+  article section{padding:24px 20px}
+  header{padding:12px 16px}
+  .tabs button{padding:8px 12px;margin-left:6px}
+  .arrow{display:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Vyksys LLC</div>
+  <div class="tabs">
+    <button id="btn-dashboard" class="active" onclick="switchTab('dashboard')">Dashboard</button>
+    <button id="btn-about" onclick="switchTab('about')">About</button>
+  </div>
+  <div id="progress"></div>
+</header>
+
+<!-- ===================== DASHBOARD ===================== -->
+<div id="dashboard" class="page-view active">
+  <h1>Server Rack Monitoring</h1>
+  <div id="statusBox" class="status-box orange">AI Status: Awaiting Data...</div>
+  <div id="aiCard" class="card"><p>Loading diagnostics...</p></div>
+
+  <div class="card">
+    <h2>Climate</h2>
+    <p>Temperature: <strong id="txtTemp">0.0</strong>&deg;F | Humidity: <strong id="txtHum">0.0</strong>%</p>
+    <canvas id="climateChart"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>Vibration</h2>
+    <p>X: <strong id="txtX">0.00</strong>g | Y: <strong id="txtY">0.00</strong>g | Z: <strong id="txtZ">0.00</strong>g</p>
+    <canvas id="vibChart"></canvas>
+  </div>
+</div>
+
+<!-- ===================== ABOUT / PAPER ===================== -->
+<div id="about" class="page-view">
+
+  <div class="hero"><div class="wrap">
+    <span class="eyebrow">Senior Capstone Engineering Portfolio</span>
+    <h1>Real-Time Predictive Maintenance for Data Center Infrastructure</h1>
+    <p class="sub">A distributed edge-to-server architecture using a hybrid MicroPython–Python pipeline.</p>
+    <div class="meta">
+      <div><b>Document</b>Project Report and Portfolio Summary</div>
+      <div><b>Date</b>May 29, 2026</div>
+      <div><b>Subject areas</b>Computer Science · Electronics · Data Analytics</div>
+      <div><b>Academic level</b>High School Honors / Senior Capstone</div>
+    </div>
+    <p class="author">Developed by Guhan Gurubaran</p>
+  </div></div>
+
+  <div class="stats">
+    <div class="stat"><strong>0%</strong><span>Host server resources used</span></div>
+    <div class="stat"><strong>2</strong><span>Sensors: vibration + thermal</span></div>
+    <div class="stat"><strong>FFT + IF</strong><span>Signal processing + ML</span></div>
+    <div class="stat"><strong>5001</strong><span>TCP ingestion port</span></div>
+  </div>
+
+  <div class="layout">
+    <nav class="toc" id="toc">
+      <h4>Contents</h4>
+      <a href="#summary">Executive Summary</a>
+      <a href="#intro">1. Introduction</a>
+      <a href="#framework">2. Engineering Framework</a>
+      <a href="#hardware">3. Hardware Architecture</a>
+      <a href="#firmware">4. Edge Firmware</a>
+      <a href="#network">5. Network &amp; Ingestion</a>
+      <a href="#ml">6. Signal Processing &amp; ML</a>
+      <a href="#dash">7. Telemetry Dashboard</a>
+      <a href="#vcs">8. Version Control</a>
+      <a href="#challenges">9. Challenges</a>
+      <a href="#conclusion">10. Conclusion</a>
+      <a href="#appendix">Appendix A: Code</a>
+    </nav>
+
+    <article>
+      <section id="summary">
+        <h2>Executive Summary</h2>
+        <p class="lead">Data center cooling failures are costly and, by the time conventional software tools detect them, hardware damage may already be under way.</p>
+        <p>This project presents an independent, out-of-band telemetry platform that monitors the physical health of server cooling fans without consuming any resources on the host server.</p>
+        <p>An <b>ESP32-S3</b> microcontroller running MicroPython captures fan vibration (MPU6050 accelerometer) and exhaust-aisle temperature (DHT22 sensor) and streams the readings as JSON over Wi-Fi to a Python 3 analytics server. The server applies <b>Fast Fourier Transform (FFT)</b> signal processing and an unsupervised <b>Isolation Forest</b> model to flag anomalies before they cause downtime, and presents results on a Streamlit dashboard.</p>
+        <div class="flow">
+          <div class="node edge"><b>Sensors</b>MPU6050<br>DHT22</div><span class="arrow">→</span>
+          <div class="node edge"><b>ESP32-S3</b>MicroPython<br>Edge node</div><span class="arrow">→</span>
+          <div class="node"><b>Wi-Fi / TCP</b>JSON packets<br>Port 5001</div><span class="arrow">→</span>
+          <div class="node srv"><b>Python Server</b>CSV logging</div><span class="arrow">→</span>
+          <div class="node srv"><b>FFT + ML</b>Isolation Forest</div><span class="arrow">→</span>
+          <div class="node srv"><b>Dashboard</b>Streamlit</div>
+        </div>
+      </section>
+
+      <section id="intro">
+        <h2><span class="n">1</span>Introduction</h2>
+        <h3>1.1 Problem Statement</h3>
+        <p>Data centers are the backbone of modern internet infrastructure. High-performance computing hardware inside a server rack runs continuously and generates substantial heat. If a primary cooling fan slows, develops bearing wear, or has its airflow path blocked, the server overheats, leading to thermal throttling (reduced processing speed) or complete hardware failure.</p>
+        <p>Traditional software tools monitor internal CPU temperatures but offer no predictive insight into the state of physical hardware. By the time a CPU reports an overheating error, component damage may already be occurring.</p>
+        <h3>1.2 Proposed Solution</h3>
+        <p>The project introduces an out-of-band physical telemetry platform. An independent ESP32-S3 microcontroller at the network edge monitors fan structural vibration and exhaust-aisle temperature. Work is divided across two components:</p>
+        <ul>
+          <li><b>Edge client node:</b> Runs optimized MicroPython, reads an MPU6050 accelerometer and a DHT22 climate sensor, and streams telemetry over local Wi-Fi.</li>
+          <li><b>Central analytics hub:</b> Runs a native Python 3 server on an external laptop that performs digital signal processing and executes an unsupervised machine-learning model to flag anomalies.</li>
+        </ul>
+      </section>
+
+      <section id="framework">
+        <h2><span class="n">2</span>Engineering Framework</h2>
+        <p>To ensure engineering rigor, development was organized into three complementary disciplines.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Discipline</th><th>Focus</th><th>Key technologies</th></tr></thead>
+          <tbody>
+            <tr><td>Electronics Engineering (hardware)</td><td>Low-power processing core, I2C and single-bus communication, stable 3.3 V power, clean soldered connections for signal integrity in high-EMI environments.</td><td>ESP32-S3, MPU6050, DHT22</td></tr>
+            <tr><td>Computer Science (software)</td><td>Object-oriented MicroPython firmware, efficient JSON packet design, non-blocking TCP socket listeners, automated version control.</td><td>Sockets, JSON, Git/GitHub, Thonny IDE</td></tr>
+            <tr><td>Computational Engineering (data and AI)</td><td>Transforming time-series acceleration into frequency spectra, unsupervised anomaly detection, live web dashboard.</td><td>SciPy FFT, scikit-learn, Streamlit</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <section id="hardware">
+        <h2><span class="n">3</span>Hardware Architecture</h2>
+        <h3>3.1 Processing Core</h3>
+        <p>The ESP32-S3 development board (N16R8 variant) was selected for three reasons:</p>
+        <ul>
+          <li><b>Vector extensions:</b> Built-in vector instructions accelerate matrix math and array processing.</li>
+          <li><b>Memory headroom:</b> 16 MB of flash and 8 MB of PSRAM allow high-frequency sensor streams to be buffered without exhausting memory.</li>
+          <li><b>Integrated radio:</b> Native 2.4 GHz Wi-Fi removes the need for external communication shields.</li>
+        </ul>
+        <h3>3.2 Multi-Sensor Array</h3>
+        <p>Sensors are placed directly at server exhaust points to capture both mechanical and thermal changes.</p>
+        <ul>
+          <li><b>MPU6050 (vibration):</b> A 3-axis accelerometer and gyroscope. Degrading fan bearings wobble, producing small high-frequency structural vibrations that the sensor captures on the X, Y and Z axes.</li>
+          <li><b>DHT22 (thermal):</b> A digital temperature and humidity sensor (±0.5 °C) placed at the hot-aisle exhaust vent. It detects thermal climbs caused by fan slowdown or blocked intake filters.</li>
+        </ul>
+        <h3>3.3 Pin Mapping</h3>
+        <p>Pins were chosen to avoid boot-loop risks and conflicts with internal flash memory lines on the ESP32-S3 expansion base.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Sensor</th><th>Module pin</th><th>ESP32-S3 pin</th><th>Purpose</th><th>Signal type</th></tr></thead>
+          <tbody>
+            <tr><td>MPU6050</td><td>VCC</td><td>3V3</td><td>Power supply</td><td>DC power</td></tr>
+            <tr><td>MPU6050</td><td>GND</td><td>GND</td><td>Ground reference</td><td>Common ground</td></tr>
+            <tr><td>MPU6050</td><td>SCL</td><td>GPIO 2</td><td>I2C clock</td><td>Synchronous digital</td></tr>
+            <tr><td>MPU6050</td><td>SDA</td><td>GPIO 1</td><td>I2C data</td><td>Bi-directional digital</td></tr>
+            <tr><td>DHT22</td><td>VCC</td><td>3V3</td><td>Power supply</td><td>DC power</td></tr>
+            <tr><td>DHT22</td><td>GND</td><td>GND</td><td>Ground reference</td><td>Common ground</td></tr>
+            <tr><td>DHT22</td><td>DATA</td><td>GPIO 5</td><td>Climate signal line</td><td>Single-bus digital</td></tr>
+          </tbody>
+        </table></div>
+        <h3>3.4 Assembly Best Practices</h3>
+        <ul>
+          <li><b>Soldering:</b> Loose jumper connections introduce noise, so header pins should be soldered to the sensor breakout boards. A breadboard can serve as a soldering jig: seat the long ends of the male headers in a breadboard row, lower the sensor board over the short pins, and solder carefully.</li>
+          <li><b>Mechanical coupling:</b> Loose tape dampens vibration and distorts acceleration data. Mount the MPU6050 to the chassis with a magnetic mount or rigid thermal epoxy to ensure clean vibration transfer.</li>
+        </ul>
+      </section>
+
+      <section id="firmware">
+        <h2><span class="n">4</span>Edge Firmware</h2>
+        <p>The edge system runs MicroPython, which executes a standard Python interpreter directly on the ESP32-S3 and allows rapid script updates through the Thonny IDE. Two components form the firmware foundation (full listings in <a href="#appendix">Appendix A</a>):</p>
+        <ul>
+          <li><b>Initialization bus scan:</b> At boot, the device scans the I2C bus to verify that peripherals are connected and responsive, and reports an error if none are found.</li>
+          <li><b>Hardware driver:</b> An object-oriented MPU6050 class wakes the chip by writing to the power-management register (<span class="pill">0x6B</span>), reads 14 consecutive bytes starting at <span class="pill">0x3B</span>, and converts the raw registers to signed two’s-complement integers.</li>
+        </ul>
+      </section>
+
+      <section id="network">
+        <h2><span class="n">5</span>Distributed Network and Data Ingestion</h2>
+        <p>Running machine-learning computation on a microcontroller can create bottlenecks and delay data collection. The workload is therefore split: the edge device handles acquisition only, while an external laptop performs analytics. The two communicate over local Wi-Fi using TCP sockets.</p>
+        <div class="two">
+          <div class="pane"><h3>ESP32-S3 client (MicroPython)</h3><ul><li>Samples physical sensors</li><li>Bundles readings into JSON strings</li><li>Streams packets over a TCP socket</li></ul></div>
+          <div class="pane"><h3>Laptop data server (Python 3)</h3><ul><li>Listens on network port 5001</li><li>Parses each JSON payload</li><li>Appends records to <span class="pill">server_log.csv</span></li></ul></div>
+        </div>
+        <p>The ingestion engine binds to all local network adapters, accepts connections from the edge node, and commits each telemetry record to a CSV file with the columns <span class="pill">timestamp</span><span class="pill">ax</span><span class="pill">ay</span><span class="pill">az</span><span class="pill">temp</span><span class="pill">humidity</span></p>
+      </section>
+
+      <section id="ml">
+        <h2><span class="n">6</span>Signal Processing and Machine Learning</h2>
+        <h3>6.1 Frequency Analysis with FFT</h3>
+        <p>An active rack produces continuous background vibration. To extract meaningful patterns, time-domain acceleration data is converted into frequency spectra using the Fast Fourier Transform (SciPy). This makes fan harmonics visible: a stable fan produces a uniform frequency profile, while bearing failure or wobble produces high-frequency harmonic anomalies.</p>
+        <h3>6.2 Anomaly Detection with Isolation Forest</h3>
+        <p>Real fan failures occur unpredictably, making pre-labeled fault data difficult to obtain. The project therefore uses an unsupervised Isolation Forest (scikit-learn).</p>
+        <ul>
+          <li><b>Method:</b> The algorithm isolates points by random partitioning. Anomalies need fewer partitions to separate from normal operation.</li>
+          <li><b>Output:</b> The model returns <span class="pill">1</span> for normal operation and <span class="pill">-1</span> for a statistical anomaly, which triggers a maintenance flag.</li>
+        </ul>
+      </section>
+
+      <section id="dash">
+        <h2><span class="n">7</span>Telemetry Dashboard</h2>
+        <p>A Streamlit web dashboard presents live operational metrics: exhaust-vent temperature, chassis humidity and the number of logged samples. It trains the Isolation Forest on acceleration and temperature features, displays a critical warning when the latest reading is anomalous, and charts the three acceleration axes over time.</p>
+        <div class="callout">The live <a href="#" onclick="switchTab('dashboard');return false;">Dashboard tab</a> on this site shows the real-time cloud view of the same telemetry stream.</div>
+      </section>
+
+      <section id="vcs">
+        <h2><span class="n">8</span>Version Control</h2>
+        <p>The codebase is maintained in a cloud-hosted GitHub repository, providing code persistence, disaster-recovery points and a history of changes across components.</p>
+        <div class="two">
+          <div class="pane"><h3>Edge controller (MicroPython)</h3><span class="pill">main.py</span><span class="pill">mpu6050.py</span><span class="pill">boot.py</span></div>
+          <div class="pane"><h3>Central server (Python)</h3><span class="pill">server.py</span><span class="pill">signal_processing.py</span><span class="pill">app.py</span></div>
+        </div>
+        <p>The standard workflow is <span class="pill">git init</span> and <span class="pill">git remote add origin</span> to link the repository, <span class="pill">git add</span> and <span class="pill">git commit</span> to record changes, and <span class="pill">git push origin main</span> to synchronize with the remote.</p>
+      </section>
+
+      <section id="challenges">
+        <h2><span class="n">9</span>Design Challenges and Mitigations</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Challenge</th><th>Description</th><th>Mitigation</th></tr></thead>
+          <tbody>
+            <tr><td>Background vibration</td><td>Neighboring high-RPM fans add vibration that blends into sensor logs and risks false alarms.</td><td>A calibration phase establishes a normal baseline, and high-pass digital filtering separates background noise from the monitored fan’s frequencies.</td></tr>
+            <tr><td>Wi-Fi loss and data gaps</td><td>Dropped connectivity loses live packets and leaves gaps in the analytics database.</td><td>On socket failure, the ESP32-S3 writes packets to an onboard MicroSD module and re-sends them once Wi-Fi returns.</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <section id="conclusion">
+        <h2><span class="n">10</span>Conclusion and Future Scope</h2>
+        <h3>10.1 Accomplishments</h3>
+        <p>The project demonstrates a low-power, distributed monitoring system for data center equipment. Separating tasks between an agile edge client and a central laptop server avoids using any production-server compute resources. The framework delivers real-time monitoring, unsupervised machine-learning insight, an interactive dashboard and organized version control, forming a clean blueprint for modern infrastructure tracking.</p>
+        <h3>10.2 Future Enhancements</h3>
+        <ul>
+          <li><b>On-device TinyML:</b> Optimize the isolation algorithm with compressed frameworks such as TensorFlow Lite for Microcontrollers so anomaly classification runs directly on the ESP32-S3.</li>
+          <li><b>Acoustic analytics:</b> Add a microphone array (for example, MAX9814) to detect ultrasonic bearing squeals or airflow blockages before they produce vibration or heat.</li>
+        </ul>
+      </section>
+
+      <section id="appendix">
+        <h2>Appendix A. Code Listings</h2>
+        <p>Listings are consolidated from the original project. Three corrections were applied: newline-delimited framing for reliable packet parsing, a corrected FFT frequency axis, and ordering the dashboard so anomaly scores exist before they are read.</p>
+
+        <h3>A.1 I2C Bus Scan (MicroPython)</h3>
+        <div class="code" data-lang="MicroPython"><pre><code>import machine
+
+print("Initializing I2C bus scan...")
+i2c = machine.I2C(0, scl=machine.Pin(2), sda=machine.Pin(1), freq=100000)
+devices = i2c.scan()
+
+if not devices:
+    print("Error: no I2C devices found. Check sensor power connections.")
+else:
+    print(f"Found {len(devices)} I2C peripheral(s).")
+    for d in devices:
+        print("Device at address:", hex(d))</code></pre></div>
+
+        <h3>A.2 MPU6050 Driver (MicroPython)</h3>
+        <div class="code" data-lang="MicroPython"><pre><code>class MPU6050:
+    def __init__(self, i2c, addr=0x68):
+        self.i2c = i2c
+        self.addr = addr
+        self.i2c.writeto_mem(self.addr, 0x6B, b"\x00")  # wake from sleep
+
+    @staticmethod
+    def _signed(hi, lo):
+        v = (hi &lt;&lt; 8) | lo
+        return v - 65536 if v &gt; 32767 else v
+
+    def get_raw_values(self):
+        d = self.i2c.readfrom_mem(self.addr, 0x3B, 14)
+        return {"ax": self._signed(d[0], d[1]),
+                "ay": self._signed(d[2], d[3]),
+                "az": self._signed(d[4], d[5])}</code></pre></div>
+
+        <h3>A.3 Ingestion Server (Python 3)</h3>
+        <p>The edge client must terminate each JSON packet with a newline character.</p>
+        <div class="code" data-lang="Python 3"><pre><code>import socket, json, csv, os
+
+PORT = 5001
+CSV_FILE = "server_log.csv"
+
+srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+srv.bind(("0.0.0.0", PORT))
+srv.listen(1)
+print(f"[*] Listening on port {PORT}...")
+
+if not os.path.exists(CSV_FILE):
+    with open(CSV_FILE, "w", newline="") as f:
+        csv.writer(f).writerow(["timestamp","ax","ay","az","temp","humidity"])
+
+while True:
+    conn, addr = srv.accept()
+    print(f"[+] Connection from {addr}")
+    with conn, conn.makefile("r", encoding="utf-8") as stream:
+        for line in stream:
+            try:
+                p = json.loads(line)
+                with open(CSV_FILE, "a", newline="") as f:
+                    csv.writer(f).writerow([p["time"], p["ax"], p["ay"],
+                                            p["az"], p["temp"], p["hum"]])
+            except (ValueError, KeyError) as e:
+                print(f"[-] Bad packet: {e}")</code></pre></div>
+
+        <h3>A.4 Frequency Analysis (Python)</h3>
+        <div class="code" data-lang="Python 3"><pre><code>import numpy as np
+from scipy.fftpack import fft
+
+def process_vibration_frequencies(samples, sampling_rate_hz):
+    n = len(samples)
+    yf = fft(samples)
+    xf = np.linspace(0.0, sampling_rate_hz / 2.0, n // 2)
+    amplitude = 2.0 / n * np.abs(yf[0:n // 2])
+    return xf, amplitude</code></pre></div>
+
+        <h3>A.5 Streamlit Dashboard (Python)</h3>
+        <div class="code" data-lang="Python 3"><pre><code>import streamlit as st
+import pandas as pd
+from sklearn.ensemble import IsolationForest
+
+st.set_page_config(page_title="Data Center Edge AI Dashboard", layout="wide")
+st.title("Data Center Predictive Maintenance System")
+
+try:
+    df = pd.read_csv("server_log.csv")
+    features = df[["ax", "ay", "az", "temp"]]
+    model = IsolationForest(contamination=0.05, random_state=42).fit(features)
+    df["anomaly_score"] = model.predict(features)
+    latest = df.iloc[-1]
+
+    st.subheader("Live Operational Matrix")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Exhaust Vent Temperature", f"{latest['temp']} °C")
+    c2.metric("Chassis Humidity", f"{latest['humidity']} %")
+    c3.metric("Logged Samples", len(df))
+
+    if latest["anomaly_score"] == -1:
+        st.error("Thermal or vibrational anomaly detected: possible cooling failure.")
+    else:
+        st.success("Operational metrics normal.")
+    st.line_chart(df[["ax", "ay", "az"]])
+except Exception:
+    st.warning("Awaiting telemetry from the ESP32 client node...")</code></pre></div>
+
+        <h3>A.6 Version Control Commands</h3>
+        <div class="code" data-lang="Shell"><pre><code>git init
+git remote add origin https://github.com/User/server-predictive-maintenance.git
+git add .
+git commit -m "Feat: server data logging and Streamlit anomaly dashboard"
+git push origin main</code></pre></div>
+      </section>
+    </article>
+  </div>
+
+  <footer>© 2026 Vyksys LLC · Developed by Guhan Gurubaran</footer>
+</div>
+
+<script>
+/* ---------- Tabs ---------- */
+function switchTab(tabId) {
+  document.querySelectorAll('.page-view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tabs button').forEach(el => el.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  document.getElementById('btn-' + tabId).classList.add('active');
+  window.scrollTo(0, 0);
+  updateProgress();
+  if (location.hash !== '#' + tabId && !document.querySelector('#about.active')) history.replaceState(null, '', '#' + tabId);
+}
+
+/* ---------- Reading progress bar (About tab only) ---------- */
+function updateProgress() {
+  const bar = document.getElementById('progress');
+  if (!document.getElementById('about').classList.contains('active')) { bar.style.width = '0'; return; }
+  const h = document.documentElement;
+  const pct = h.scrollTop / Math.max(1, h.scrollHeight - h.clientHeight) * 100;
+  bar.style.width = pct + '%';
+}
+window.addEventListener('scroll', updateProgress, { passive: true });
+
+/* ---------- Table of contents scroll-spy ---------- */
+const tocLinks = [...document.querySelectorAll('#toc a')];
+const spy = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocLinks.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id));
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+document.querySelectorAll('article section').forEach(s => spy.observe(s));
+
+/* ---------- Code blocks: language label + copy button ---------- */
+document.querySelectorAll('.code').forEach(block => {
+  const lang = document.createElement('span');
+  lang.className = 'lang';
+  lang.textContent = block.dataset.lang || '';
+  const btn = document.createElement('button');
+  btn.textContent = 'Copy';
+  btn.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(block.querySelector('code').innerText);
+      btn.textContent = 'Copied!';
+    } catch (e) { btn.textContent = 'Press Ctrl+C'; }
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  };
+  block.append(lang, btn);
+});
+
+/* ---------- Deep link: yoursite.github.io/#about opens the paper ---------- */
+if (location.hash === '#about') switchTab('about');
+
+/* ---------- Dashboard charts (original logic) ---------- */
+let readingCount = 0;
+const maxHistory = 15;
+
+const climateChart = new Chart(document.getElementById('climateChart').getContext('2d'), {
+  type: 'line',
+  data: { labels: [], datasets: [
+    { label: 'Temp (°F)', data: [], borderColor: '#dc3545', backgroundColor: 'transparent' },
+    { label: 'Humidity (%)', data: [], borderColor: '#007bff', backgroundColor: 'transparent' }
+  ]}
+});
+
+const vibChart = new Chart(document.getElementById('vibChart').getContext('2d'), {
+  type: 'line',
+  data: { labels: [], datasets: [
+    { label: 'X-Axis (g)', data: [], borderColor: '#fd7e14', backgroundColor: 'transparent' },
+    { label: 'Y-Axis (g)', data: [], borderColor: '#6f42c1', backgroundColor: 'transparent' }
+  ]}
+});
+
+setInterval(async () => {
+  try {
+    let res = await fetch('https://servermonitering.firebaseio.com/server_status.json');
+    let data = await res.json();
+    if (!data) return;
+
+    document.getElementById('txtTemp').innerText = data.temp.toFixed(1);
+    document.getElementById('txtHum').innerText = data.humid.toFixed(1);
+    document.getElementById('txtX').innerText = data.mx.toFixed(2);
+    document.getElementById('txtY').innerText = data.my.toFixed(2);
+    document.getElementById('txtZ').innerText = data.mz.toFixed(2);
+
+    let sBox = document.getElementById('statusBox');
+    sBox.innerText = "AI Status: " + data.ai_msg;
+    sBox.className = "status-box " + data.ai_color;
+    document.getElementById('aiCard').innerHTML = data.ai_details;
+
+    readingCount++;
+    climateChart.data.labels.push(readingCount);
+    climateChart.data.datasets[0].data.push(data.temp);
+    climateChart.data.datasets[1].data.push(data.humid);
+    vibChart.data.labels.push(readingCount);
+    vibChart.data.datasets[0].data.push(data.mx);
+    vibChart.data.datasets[1].data.push(data.my);
+
+    if (climateChart.data.labels.length > maxHistory) {
+      climateChart.data.labels.shift();
+      climateChart.data.datasets.forEach(d => d.data.shift());
+      vibChart.data.labels.shift();
+      vibChart.data.datasets.forEach(d => d.data.shift());
+    }
+    climateChart.update('none');
+    vibChart.update('none');
+  } catch (e) { console.log("Error updating metrics", e); }
+}, 500);
+</script>
+</body>
+</html>
